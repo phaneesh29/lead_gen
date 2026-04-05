@@ -1,0 +1,16 @@
+{
+  "name": "lead_gen",
+  "version": "1.0.0",
+  "description": "Local lead database for agency prospecting",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "db:init": "node db/init.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.8.0"
+  }
+}
