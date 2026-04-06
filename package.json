@@ -12,6 +12,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "leads:import": "node scripts/import-google-places.js",
+    "leads:refresh-details": "node scripts/refresh-google-maps-details.js",
     "enrich:emails": "node scripts/enrich-emails.js",
     "leads:export": "node scripts/export-leads.js",
     "leads:html": "node scripts/render-leads-html.js",

@@ -46,10 +46,19 @@ function normalizeText(value) {
   return normalized.length > 0 ? normalized : null;
 }
 
+function cleanPhone(value) {
+  const normalized = normalizeText(value);
+  if (!normalized || /^send to phone$/i.test(normalized)) {
+    return null;
+  }
+  return normalized;
+}
+
 function buildLeadRecord(business) {
   const primaryEmail = business.emails.find((email) => email.isPrimary) ?? business.emails[0] ?? null;
   const hasOwnWebsite = business.website && !/wa\.me|wa\.link|practo\.com|fresha\.com|cult\.fit/i.test(business.website);
   const qualityFlags = [];
+  const phone = cleanPhone(business.phone);
 
   if (!business.website) {
     qualityFlags.push("no_website");
@@ -63,12 +72,16 @@ function buildLeadRecord(business) {
     qualityFlags.push("no_email");
   }
 
+  if (!phone) {
+    qualityFlags.push("no_phone");
+  }
+
   return {
     id: business.id,
     placeId: business.placeId,
     name: business.name,
     category: business.category,
-    phone: business.phone,
+    phone,
     website: business.website,
     address: business.address,
     city: business.city,
@@ -153,6 +166,7 @@ function main() {
       withWebsite: leads.filter((lead) => Boolean(lead.website)).length,
       withOwnWebsite: leads.filter((lead) => lead.hasOwnWebsite).length,
       withEmail: leads.filter((lead) => Boolean(lead.primaryEmail)).length,
+      withPhone: leads.filter((lead) => Boolean(lead.phone)).length,
     },
     leads,
   };

@@ -5,6 +5,7 @@ const GOOGLE_HOST_PATTERN = /(^|\.)google\./i;
 const DEFAULT_TIMEOUT_MS = 20000;
 const SEARCH_SCROLL_DELAY_MS = 1200;
 const SEARCH_SCROLL_ITERATIONS = 25;
+const PHONE_PATTERN = /(\+?\d[\d\s().-]{7,}\d)/;
 
 function buildSearchTerm({ query, location }) {
   return location ? `${query} in ${location}` : query;
@@ -26,6 +27,27 @@ function normalizeText(value) {
 
   const normalized = String(value).replace(/\s+/g, " ").trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function normalizePhone(value) {
+  const normalized = normalizeText(value);
+
+  if (!normalized) {
+    return null;
+  }
+
+  if (/^send to phone$/i.test(normalized)) {
+    return null;
+  }
+
+  const cleaned = normalized.replace(/^Phone:?\s*/i, "");
+  const match = cleaned.match(PHONE_PATTERN);
+
+  if (match) {
+    return normalizeText(match[1]);
+  }
+
+  return /^send to phone$/i.test(cleaned) ? null : cleaned;
 }
 
 function parseAddress(address) {
@@ -170,19 +192,55 @@ async function scrapePlaceDetail(browser, placeLink) {
     await delay(1200);
 
     const detail = await page.evaluate(() => {
+      const phonePattern = /(\+?\d[\d\s().-]{7,}\d)/;
+
       function textContent(selector) {
         const element = document.querySelector(selector);
         return element ? element.textContent : null;
       }
 
-      function firstButtonText(matchers) {
-        const buttons = Array.from(document.querySelectorAll('button, [role="button"]'));
-        const button = buttons.find((element) => {
-          const text = `${element.getAttribute("aria-label") || ""} ${element.textContent || ""}`.toLowerCase();
-          return matchers.some((matcher) => text.includes(matcher));
+      function nodeText(element) {
+        return `${element.getAttribute("aria-label") || ""} ${element.textContent || ""}`.replace(/\s+/g, " ").trim();
+      }
+
+      function extractPhone() {
+        const telLink = document.querySelector('a[href^="tel:"]');
+        if (telLink) {
+          return telLink.getAttribute("href")?.replace(/^tel:/i, "") || telLink.textContent || null;
+        }
+
+        const candidates = Array.from(document.querySelectorAll('button, [role="button"], a, div'));
+
+        const scored = candidates
+          .map((element) => {
+            const dataItemId = element.getAttribute("data-item-id") || "";
+            const text = nodeText(element);
+            const match = text.match(phonePattern);
+
+            return {
+              dataItemId: dataItemId.toLowerCase(),
+              text,
+              match: match ? match[1] : null,
+            };
+          })
+          .filter((entry) => entry.match || entry.dataItemId.includes("phone") || /^phone/i.test(entry.text));
+
+        const preferred = scored.find((entry) => entry.dataItemId.includes("phone") && entry.match)
+          || scored.find((entry) => /^phone/i.test(entry.text) && entry.match)
+          || scored.find((entry) => entry.match);
+
+        return preferred ? preferred.match || preferred.text : null;
+      }
+
+      function extractAddress() {
+        const candidates = Array.from(document.querySelectorAll('button, [role="button"], div'));
+        const preferred = candidates.find((element) => {
+          const dataItemId = (element.getAttribute("data-item-id") || "").toLowerCase();
+          const text = nodeText(element).toLowerCase();
+          return dataItemId.includes("address") || text.startsWith("address");
         });
 
-        return button ? button.getAttribute("aria-label") || button.textContent : null;
+        return preferred ? nodeText(preferred) : null;
       }
 
       const websiteCandidates = Array.from(document.querySelectorAll('a[href^="http"]')).map((link) => link.href);
@@ -195,15 +253,15 @@ async function scrapePlaceDetail(browser, placeLink) {
         name,
         category: textContent('button[jsaction*="category"]') || textContent('div[role="main"] button') || null,
         websiteCandidates,
-        phone: firstButtonText(["phone", "call"]),
-        address: firstButtonText(["address"]),
+        phone: extractPhone(),
+        address: extractAddress(),
         ratingLabel,
         pageUrl: location.href,
       };
     });
 
     const addressBits = parseAddress(detail.address?.replace(/^Address:?\s*/i, ""));
-    const phone = normalizeText(detail.phone?.replace(/^Phone:?\s*/i, ""));
+    const phone = normalizePhone(detail.phone);
 
     return {
       placeId: extractPlaceId(detail.pageUrl || placeLink.url),
@@ -220,6 +278,26 @@ async function scrapePlaceDetail(browser, placeLink) {
     };
   } finally {
     await page.close();
+  }
+}
+
+export async function scrapeGoogleMapsPlace({
+  placeUrl,
+  headless = true,
+} = {}) {
+  if (!normalizeText(placeUrl)) {
+    throw new Error("Missing placeUrl for Google Maps detail scrape.");
+  }
+
+  const browser = await puppeteer.launch(getLaunchOptions(headless));
+
+  try {
+    return await scrapePlaceDetail(browser, {
+      name: null,
+      url: placeUrl,
+    });
+  } finally {
+    await browser.close();
   }
 }
 
