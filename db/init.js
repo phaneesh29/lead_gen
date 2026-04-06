@@ -1,15 +1,12 @@
-import fs from "node:fs";
 import path from "node:path";
-import { getDb, getDbPath } from "./index.js";
-
-const schemaPath = path.join(process.cwd(), "db", "schema.sql");
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { getDbPath, getOrm } from "./index.js";
 
 function initDatabase() {
-  const schemaSql = fs.readFileSync(schemaPath, "utf8");
-  const db = getDb();
+  const db = getOrm();
+  const migrationsFolder = path.join(process.cwd(), "drizzle");
 
-  db.exec(schemaSql);
-  db.close();
+  migrate(db, { migrationsFolder });
 
   console.log(`Database initialized at ${getDbPath()}`);
 }
