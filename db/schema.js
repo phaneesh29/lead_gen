@@ -24,6 +24,8 @@ export const businesses = sqliteTable(
     rating: real("rating"),
     mapsUrl: text("maps_url"),
     leadStatus: text("lead_status").default("new"),
+    enrichmentStatus: text("enrichment_status").default("pending"),
+    lastEnrichedAt: text("last_enriched_at"),
     notes: text("notes"),
     createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),
@@ -32,6 +34,9 @@ export const businesses = sqliteTable(
     nameIndex: index("idx_businesses_name").on(table.name),
     cityIndex: index("idx_businesses_city").on(table.city),
     leadStatusIndex: index("idx_businesses_lead_status").on(table.leadStatus),
+    enrichmentStatusIndex: index("idx_businesses_enrichment_status").on(
+      table.enrichmentStatus,
+    ),
   }),
 );
 
@@ -47,6 +52,8 @@ export const emails = sqliteTable(
     sourceType: text("source_type"),
     confidence: real("confidence").default(0.5),
     isPrimary: integer("is_primary", { mode: "boolean" }).default(false),
+    isVerified: integer("is_verified", { mode: "boolean" }).default(false),
+    verificationNotes: text("verification_notes"),
     createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({

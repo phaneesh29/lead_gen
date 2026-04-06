@@ -12,11 +12,15 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "leads:import": "node scripts/import-google-places.js",
+    "enrich:emails": "node scripts/enrich-emails.js",
+    "leads:export": "node scripts/export-leads.js",
+    "leads:html": "node scripts/render-leads-html.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",
-    "drizzle-orm": "^0.44.7"
+    "drizzle-orm": "^0.44.7",
+    "puppeteer": "^24.40.0"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.10"
